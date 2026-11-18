@@ -1,0 +1,211 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royal Club — Virtual Casino</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <div class="logo">ROYAL CLUB</div>
+
+    <nav aria-label="Main navigation">
+        <a href="#">HOME</a>
+        <a href="#games">GAMES</a>
+        <a href="#about">ABOUT</a>
+    </nav>
+
+    <div class="header-right">
+        <div class="balance">1,000 POINTS</div>
+        <span class="profile-label">PROFILE</span>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="hero-content">
+        <p class="subtitle">WELCOME TO ROYAL CLUB</p>
+        <h1>THE CLASSICS<br>AWAIT.</h1>
+        <p class="description">
+            Explore a collection of virtual games and challenges.
+            Play for points only — no cash value.
+        </p>
+        <button onclick="scrollToGames()">EXPLORE GAMES</button>
+    </div>
+
+    <div class="hero-image">
+        <img
+            src="hero.jpg"
+            alt="Night sky"
+        >
+    </div>
+</section>
+
+<section class="games-section" id="games">
+
+    <div class="section-heading">
+        <p>THE COLLECTION</p>
+        <h2>OUR GAMES</h2>
+    </div>
+
+    <div class="games-list">
+
+        <button type="button" class="game-box" onclick="openGame('Blackjack')" aria-label="Blackjack">
+            <img src="blacjack.jpg" alt="">
+            <span class="game-title">BLACKJACK</span>
+        </button>
+
+        <button type="button" class="game-box" onclick="openGame('Roulette')" aria-label="Roulette, coming soon">
+            <img src="roulette2.jpg" alt="">
+            <span class="game-title">ROULETTE</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Slots')" aria-label="Slots, coming soon">
+            <img src="images/games/slots.jpg" alt="">
+            <span class="game-title">SLOTS</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Poker')" aria-label="Poker, coming soon">
+            <img src="images/games/poker.jpg" alt="">
+            <span class="game-title">POKER</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Limbo')" aria-label="Limbo, coming soon">
+            <img src="images/games/limbo.jpg" alt="">
+            <span class="game-title">LIMBO</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Chicken')" aria-label="Chicken, coming soon">
+            <img src="images/games/chicken.jpg" alt="">
+            <span class="game-title">CHICKEN</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Mines')" aria-label="Mines, coming soon">
+            <img src="images/games/mines.jpg" alt="">
+            <span class="game-title">MINES</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Plinko')" aria-label="Plinko, coming soon">
+            <img src="images/games/plinko.jpg" alt="">
+            <span class="game-title">PLINKO</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Hilo')" aria-label="Hilo, coming soon">
+            <img src="images/games/hilo.jpg" alt="">
+            <span class="game-title">HILO</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Keno')" aria-label="Keno, coming soon">
+            <img src="images/games/keno.jpg" alt="">
+            <span class="game-title">KENO</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Crash')" aria-label="Crash, coming soon">
+            <img src="images/games/crash.jpg" alt="">
+            <span class="game-title">CRASH</span>
+        <span class="game-status">COMING SOON</span></button>
+
+        <button type="button" class="game-box" onclick="openGame('Leaderboard')" aria-label="Leaderboard, coming soon">
+            <img src="images/games/leaderboard.jpg" alt="">
+            <span class="game-title">LEADERBOARD</span>
+        <span class="game-status">COMING SOON</span></button>
+
+    </div>
+</section>
+
+<section class="about" id="about">
+    <p>ABOUT ROYAL CLUB</p>
+    <h2>BUILT FOR THE EXPERIENCE.</h2>
+    <p>
+        A virtual gaming experience.
+        No real money, deposits or cash prizes.
+    </p>
+</section>
+
+<footer>
+    <div class="logo">ROYAL CLUB</div>
+    <p>© 2026 ROYAL CLUB. ALL RIGHTS RESERVED.</p>
+</footer>
+
+<div id="notice"></div>
+
+<section id="blackjack" class="blackjack" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="bj-title">
+    <div class="bj-shell">
+        <header class="bj-header">
+            <button class="bj-back" onclick="closeBlackjack()" aria-label="Back to games">← <span>BACK TO GAMES</span></button>
+            <div class="bj-brand">ROYAL CLUB <span>TABLE 01</span></div>
+            <button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" aria-pressed="true">SOUND ON</button>
+        </header>
+        <div class="bj-main">
+            <div class="bj-title-row">
+                <div><p class="bj-eyebrow">THE COLLECTION / CARD GAMES</p><h1 id="bj-title">BLACKJACK</h1></div>
+                <div class="bj-rules">BLACKJACK PAYS 3:2 <span>•</span> DEALER STANDS ON 17</div>
+            </div>
+            <div class="table-felt">
+                <div class="result-overlay" id="result-overlay" aria-hidden="true">
+                    <div class="result-card">
+                        <p>ROUND OVER</p>
+                        <strong id="result-title">YOU LOST</strong>
+                        <div class="result-note">Nice try!</div>
+                    </div>
+                </div>
+                <div class="card-shoe" id="card-shoe" aria-hidden="true">
+                    <div class="shoe-stack">
+                        <span class="shoe-card shoe-card-back shoe-card-one"></span>
+                        <span class="shoe-card shoe-card-back shoe-card-two"></span>
+                        <span class="shoe-card shoe-card-back shoe-card-top"><span class="shoe-emblem">RC</span></span>
+                    </div>
+                    <span class="shoe-label">CARD SHOE</span>
+                </div>
+                <div class="seat dealer-seat">
+                    <div class="seat-heading"><span>DEALER</span><strong id="dealer-total">—</strong></div>
+                    <div class="cards" id="dealer-cards" aria-label="Dealer cards"></div>
+                </div>
+                <div class="table-message" id="game-message" aria-live="polite">Place your bet and deal in.</div>
+                <div class="seat player-seat">
+                    <div class="seat-heading"><span>YOUR HAND</span><strong id="player-total">—</strong></div>
+                    <div class="cards" id="player-cards" aria-label="Your cards"></div>
+                </div>
+            </div>
+            <div class="bj-controls">
+                <div class="bet-entry">
+                    <label class="bet-control" for="bet-amount">BET <span><input id="bet-amount" type="number" min="1" step="1" value="25" inputmode="numeric"><b>PTS</b></span></label>
+                    <div class="bet-chips" role="group" aria-label="Choose a bet amount">
+                        <button class="bet-chip chip-sand" type="button" data-bet="10" aria-label="Bet 10 points" aria-pressed="false">10</button>
+                        <button class="bet-chip chip-mocha" type="button" data-bet="25" aria-label="Bet 25 points" aria-pressed="true">25</button>
+                        <button class="bet-chip chip-watermelon" type="button" data-bet="100" aria-label="Bet 100 points" aria-pressed="false">100</button>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-button secondary" id="hit-button" onclick="hit()" disabled>HIT</button>
+                    <button class="action-button secondary" id="stand-button" onclick="stand()" disabled>STAND</button>
+                    <button class="action-button primary" id="deal-button" onclick="startRound()">DEAL</button>
+                </div>
+                <div class="bj-bankroll">BALANCE <strong id="bj-balance">1,000 PTS</strong></div>
+            </div>
+            <details class="fairness-panel">
+                <summary>PROVABLY FAIR SETTINGS <span>EDIT SEEDS AND REVIEW THE DEAL</span></summary>
+                <div class="fairness-fields">
+                    <label>SERVER SEED<input id="server-seed" type="text" autocomplete="off" placeholder="Generate on first deal"></label>
+                    <label>CLIENT SEED<input id="client-seed" type="text" autocomplete="off" value="xx-player"></label>
+                    <label>NONCE<input id="nonce" type="number" min="0" step="1" value="0"></label>
+                    <button class="action-button secondary" onclick="verifyCurrentRound()">VERIFY / SHOW 52 CARDS</button>
+                </div>
+                <p id="sequence-output" class="sequence-output">Your card order is derived from HMAC-SHA512. This is a virtual game; seeds are stored only in this page.</p>
+            </details>
+            <p class="bj-disclaimer">PLAY FOR POINTS ONLY · NO REAL MONEY OR PRIZES</p>
+        </div>
+    </div>
+</section>
+
+<script src="script.js"></script>
+
+
+<button class="jarvis-launcher" id="jarvis-launcher" aria-label="Open Jarvis assistant" aria-expanded="false"><span class="jarvis-spark" aria-hidden="true">✦</span><span>ASK JARVIS</span></button>
+<aside class="jarvis-panel" id="jarvis-panel" aria-labelledby="jarvis-title" aria-hidden="true"><div class="jarvis-head"><div><span class="jarvis-kicker">YOUR CASINO GUIDE</span><strong id="jarvis-title">JARVIS</strong></div><button type="button" id="jarvis-close" aria-label="Close Jarvis">×</button></div><div class="jarvis-messages" id="jarvis-messages" aria-live="polite"><p class="jarvis-bubble jarvis-bot">Good evening. I’m Jarvis. Ask me about the games or how virtual points work.</p></div><form class="jarvis-form" id="jarvis-form"><label class="visually-hidden" for="jarvis-input">Message Jarvis</label><input id="jarvis-input" maxlength="1000" placeholder="Ask Jarvis…" autocomplete="off" aria-label="Message Jarvis"><button type="submit" aria-label="Send message">↑</button></form><p class="jarvis-note">VIRTUAL POINTS ONLY · NO CASH VALUE</p></aside>
+<script src="jarvis_assistant/widget.js"></script>
+
+</body>
+</html>
