@@ -1,0 +1,12 @@
+{
+  "name": "royal-club-miniproject",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A responsive virtual game library with Blackjack and JSON Server CRUD.",
+  "scripts": {
+    "api": "json-server --watch db.json --port 3000"
+  },
+  "devDependencies": {
+    "json-server": "^0.17.4"
+  }
+}
