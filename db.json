@@ -1,0 +1,25 @@
+{
+  "games": [
+    {
+      "id": 1,
+      "name": "Blackjack",
+      "category": "Card Game",
+      "description": "Play a classic hand against the dealer for virtual points.",
+      "status": "playable"
+    },
+    {
+      "id": 2,
+      "name": "Roulette",
+      "category": "Table Game",
+      "description": "A classic wheel game. This title is listed for a future update.",
+      "status": "coming-soon"
+    },
+    {
+      "id": 3,
+      "name": "Poker",
+      "category": "Card Game",
+      "description": "A strategy card game. This title is listed for a future update.",
+      "status": "coming-soon"
+    }
+  ]
+}

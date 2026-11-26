@@ -1,606 +1,332 @@
-const SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
-const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-const SYMBOLS = {
-    Hearts: '♥',
-    Diamonds: '♦',
-    Clubs: '♣',
-    Spades: '♠'
-};
+const SUITS = ["Hearts", "Diamonds", "Clubs", "Spades"];
+const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const SYMBOLS = { Hearts: "♥", Diamonds: "♦", Clubs: "♣", Spades: "♠" };
+const API_URL = "http://localhost:3000/games";
+const starterGames = [
+    { id: 1, name: "Blackjack", category: "Card Game", description: "Play a classic hand against the dealer for virtual points.", status: "playable" },
+    { id: 2, name: "Roulette", category: "Table Game", description: "A classic wheel game for a future update.", status: "coming-soon" },
+    { id: 3, name: "Poker", category: "Card Game", description: "A strategy card game for a future update.", status: "coming-soon" }
+];
 
-let blackjackReturnFocus = null;
+let games = [...starterGames];
+let editingId = null;
+let deletingId = null;
+let returnFocus = null;
+const gameList = document.querySelector("#games-list");
+const gameDialog = document.querySelector("#game-dialog");
+const deleteDialog = document.querySelector("#delete-dialog");
+const gameForm = document.querySelector("#game-form");
+const toast = document.querySelector("#app-toast");
 
-const GAME = {
+const blackjack = {
     balance: 1000,
-    cursor: 0,
+    bet: 0,
     player: [],
     dealer: [],
     active: false,
-    sound: true,
-    context: null,
-    roundSeed: null,
-    lastSeed: null,
-    lastCursor: 0,
-    bet: 0,
-    lossTimer: null
+    deck: []
 };
 
-function scrollToGames() {
-    document.getElementById('games').scrollIntoView({
-        behavior: 'smooth'
+function showView(id) {
+    document.querySelectorAll(".app-view").forEach(view => view.hidden = view.id !== id);
+    document.querySelectorAll("[data-view-target]").forEach(button => {
+        if (button.dataset.viewTarget === id) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
     });
+    history.replaceState(null, "", `#${id}`);
 }
 
-function openGame(name) {
-    if (name !== 'Blackjack') {
-        const notice = document.getElementById('notice');
-        notice.innerText = name + ' - Coming Soon';
-        notice.style.display = 'block';
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: options.body ? { "Content-Type": "application/json" } : {}
+    });
+    if (!response.ok) throw new Error(`Server returned ${response.status}.`);
+    return response.status === 204 ? null : response.json();
+}
 
-        setTimeout(() => {
-            notice.style.display = 'none';
-        }, 2500);
+function showToast(message) {
+    toast.textContent = message;
+    if (typeof toast.showPopover === "function") toast.showPopover();
+    else toast.classList.add("is-visible");
+    setTimeout(() => {
+        if (typeof toast.hidePopover === "function") toast.hidePopover();
+        else toast.classList.remove("is-visible");
+    }, 3000);
+}
 
+async function loadGames() {
+    const status = document.querySelector("#api-status");
+    try {
+        const data = await apiRequest(API_URL);
+        if (Array.isArray(data)) games = data;
+        status.textContent = `Loaded ${games.length} games from JSON Server.`;
+    } catch (error) {
+        status.textContent = "JSON Server is unavailable. Showing starter games.";
+        showToast("Could not load the catalog. Start JSON Server to save changes.");
+    }
+    renderGames();
+}
+
+function renderGames() {
+    gameList.replaceChildren();
+    if (!games.length) {
+        gameList.innerHTML = '<p class="empty-state">The library is empty.</p>';
         return;
     }
 
-    const game = document.getElementById('blackjack');
-    blackjackReturnFocus = document.activeElement;
-    game.classList.add('is-open');
-    game.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('game-open');
-    game.querySelector('.bj-back').focus();
-    playSound('open');
+    games.forEach(game => {
+        const card = document.createElement("article");
+        card.className = "game-card";
+        card.dataset.id = game.id;
+        card.innerHTML = `
+            <div class="game-card-meta">
+                <span>${escapeHtml(game.category)}</span>
+                <span class="game-status">${game.status === "playable" ? "PLAYABLE" : "COMING SOON"}</span>
+            </div>
+            <h2>${escapeHtml(game.name)}</h2>
+            <p class="game-description">${escapeHtml(game.description)}</p>
+            <div class="game-card-actions">
+                <button class="button button-primary" type="button" data-action="play">PLAY</button>
+                <button class="button button-secondary" type="button" data-action="edit">EDIT</button>
+                <button class="button button-quiet" type="button" data-action="delete">DELETE</button>
+            </div>`;
+        gameList.append(card);
+    });
+}
+
+function escapeHtml(value) {
+    const element = document.createElement("span");
+    element.textContent = value;
+    return element.innerHTML;
+}
+
+function openEditor(game = null) {
+    editingId = game?.id ?? null;
+    gameForm.reset();
+    document.querySelector("#game-id").value = editingId ?? "";
+    document.querySelector("#game-name").value = game?.name ?? "";
+    document.querySelector("#game-category").value = game?.category ?? "";
+    document.querySelector("#game-description").value = game?.description ?? "";
+    document.querySelector("#game-status").value = game?.status ?? "coming-soon";
+    document.querySelector("#game-dialog-title").textContent = game ? "EDIT GAME" : "ADD A GAME";
+    gameDialog.showModal();
+}
+
+async function saveGame(event) {
+    event.preventDefault();
+
+    const game = {
+        name: document.querySelector("#game-name").value.trim(),
+        category: document.querySelector("#game-category").value.trim(),
+        description: document.querySelector("#game-description").value.trim(),
+        status: document.querySelector("#game-status").value
+    };
+
+    try {
+        if (editingId) {
+            const updated = await apiRequest(`${API_URL}/${encodeURIComponent(editingId)}`, {
+                method: "PATCH",
+                body: JSON.stringify(game)
+            });
+            games = games.map(item => String(item.id) === String(editingId) ? { ...item, ...updated, ...game } : item);
+            showToast(`${game.name} was updated.`);
+        } else {
+            const created = await apiRequest(API_URL, { method: "POST", body: JSON.stringify(game) });
+            games.push(created);
+            showToast(`${game.name} was added.`);
+        }
+        renderGames();
+        gameDialog.close();
+    } catch (error) {
+        showToast(`Could not save the game. ${error.message}`);
+    }
+}
+
+async function deleteGame() {
+    try {
+        await apiRequest(`${API_URL}/${encodeURIComponent(deletingId)}`, { method: "DELETE" });
+        games = games.filter(game => String(game.id) !== String(deletingId));
+        renderGames();
+        deleteDialog.close();
+        showToast("Game deleted.");
+    } catch (error) {
+        showToast(`Could not delete the game. ${error.message}`);
+    }
+}
+
+function shuffleDeck() {
+    const deck = RANKS.flatMap(rank => SUITS.map(suit => ({
+        rank,
+        suit,
+        symbol: `${rank}${SYMBOLS[suit]}`
+    })));
+    deck.forEach((card, index) => {
+        const randomIndex = Math.floor(Math.random() * deck.length);
+        [deck[index], deck[randomIndex]] = [deck[randomIndex], deck[index]];
+    });
+    return deck;
+}
+
+function handValue(cards) {
+    let value = 0;
+    let aces = 0;
+    cards.forEach(card => {
+        if (card.rank === "A") { value += 11; aces++; }
+        else value += ["10", "J", "Q", "K"].includes(card.rank) ? 10 : Number(card.rank);
+    });
+    while (value > 21 && aces) { value -= 10; aces--; }
+    return value;
+}
+
+function renderBlackjack(reveal = false) {
+    let dealOrder = 0;
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ["player", "dealer"].forEach(type => {
+        const container = document.querySelector(`#${type}-cards`);
+        blackjack[type].forEach((card, index) => {
+            let element = container.children[index];
+            if (!element) {
+                element = document.createElement("div");
+                element.className = "playing-card";
+                element.style.opacity = "0";
+                container.append(element);
+                const animation = element.animate(
+                    [{ opacity: 0, transform: `translateY(${reduceMotion ? 5 : 20}px)` }, { opacity: 1, transform: "translateY(0)" }],
+                    {
+                        duration: reduceMotion ? 120 : 300,
+                        delay: dealOrder * (reduceMotion ? 150 : 350),
+                        easing: "ease-out",
+                        fill: "both"
+                    }
+                );
+                animation.onfinish = () => {
+                    element.style.removeProperty("opacity");
+                    animation.cancel();
+                };
+                dealOrder++;
+            }
+            const hidden = type === "dealer" && index === 1 && !reveal;
+            element.textContent = hidden ? "?" : card.symbol;
+            element.setAttribute("aria-label", hidden ? "Hidden dealer card" : `${card.rank} of ${card.suit}`);
+            if (!hidden && (card.suit === "Hearts" || card.suit === "Diamonds")) element.classList.add("red-card");
+        });
+    });
+    document.querySelector("#player-total").textContent = blackjack.player.length ? handValue(blackjack.player) : "—";
+    document.querySelector("#dealer-total").textContent = blackjack.dealer.length
+        ? (reveal ? handValue(blackjack.dealer) : handValue([blackjack.dealer[0]]) + " + ?")
+        : "—";
+    document.querySelector("#bj-balance").textContent = `${blackjack.balance.toLocaleString()} PTS`;
+}
+
+function setBlackjackButtons() {
+    document.querySelector("#deal-button").disabled = blackjack.active;
+    document.querySelector("#hit-button").disabled = !blackjack.active;
+    document.querySelector("#stand-button").disabled = !blackjack.active;
+}
+
+function openBlackjack() {
+    returnFocus = document.activeElement;
+    document.querySelector("#blackjack").showModal();
+    renderBlackjack();
 }
 
 function closeBlackjack() {
-    const game = document.getElementById('blackjack');
-    game.classList.remove('is-open');
-    game.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('game-open');
-    if (blackjackReturnFocus && typeof blackjackReturnFocus.focus === 'function') {
-        blackjackReturnFocus.focus();
-    }
+    document.querySelector("#blackjack").close();
+    returnFocus?.focus();
 }
 
-function closeResult() {
-    if (GAME.lossTimer) {
-        clearTimeout(GAME.lossTimer);
-        GAME.lossTimer = null;
-    }
-
-    const overlay = document.getElementById('result-overlay');
-    overlay.classList.remove('is-visible');
-    overlay.setAttribute('aria-hidden', 'true');
-}
-
-function showLostPopup() {
-    const overlay = document.getElementById('result-overlay');
-    document.getElementById('result-title').textContent = 'YOU LOST';
-    overlay.classList.add('is-visible');
-    overlay.setAttribute('aria-hidden', 'false');
-    GAME.lossTimer = setTimeout(closeResult, 2400);
-}
-
-function toggleSound() {
-    GAME.sound = !GAME.sound;
-
-    const button = document.getElementById('sound-toggle');
-    button.textContent = GAME.sound ? 'SOUND ON' : 'SOUND OFF';
-    button.setAttribute('aria-pressed', String(GAME.sound));
-
-    if (GAME.sound) {
-        playSound('deal');
-    }
-}
-
-function playSound(kind) {
-    if (!GAME.sound) return;
-
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-
-        GAME.context ||= new AudioContext();
-
-        if (GAME.context.state === 'suspended') {
-            GAME.context.resume();
-        }
-
-        const now = GAME.context.currentTime;
-        const notes =
-            kind === 'win' ? [660, 880, 1100] :
-            kind === 'lose' ? [330, 247] :
-            kind === 'open' ? [440, 660] :
-            [520];
-
-        notes.forEach((frequency, index) => {
-            const oscillator = GAME.context.createOscillator();
-            const gain = GAME.context.createGain();
-
-            oscillator.type = 'sine';
-            oscillator.frequency.value = frequency;
-
-            gain.gain.setValueAtTime(0.0001, now + index * 0.085);
-            gain.gain.exponentialRampToValueAtTime(
-                0.09,
-                now + index * 0.085 + 0.012
-            );
-            gain.gain.exponentialRampToValueAtTime(
-                0.0001,
-                now + index * 0.085 + 0.16
-            );
-
-            oscillator.connect(gain).connect(GAME.context.destination);
-            oscillator.start(now + index * 0.085);
-            oscillator.stop(now + index * 0.085 + 0.17);
-        });
-    } catch (error) {
-        // Peli toimii, vaikka selain estäisi äänen.
-    }
-}
-
-function bytesToHex(bytes) {
-    return Array.from(bytes)
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
-}
-
-async function hmacSHA512(serverSeed, message) {
-    if (!window.crypto || !window.crypto.subtle) {
-        throw new Error(
-            'Salaus ei ole käytettävissä. Avaa sivu modernissa selaimessa.'
-        );
-    }
-
-    const key = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(serverSeed),
-        { name: 'HMAC', hash: 'SHA-512' },
-        false,
-        ['sign']
-    );
-
-    const signature = await crypto.subtle.sign(
-        'HMAC',
-        key,
-        new TextEncoder().encode(message)
-    );
-
-    return bytesToHex(new Uint8Array(signature));
-}
-
-function bytesToFloat(hash) {
-    const bytes = [0, 2, 4, 6].map(index =>
-        parseInt(hash.slice(index, index + 2), 16)
-    );
-
-    return bytes[0] / 256
-        + bytes[1] / 65536
-        + bytes[2] / 16777216
-        + bytes[3] / 4294967296;
-}
-
-async function dealCard(serverSeed, clientSeed, nonce, cursor) {
-    const hash = await hmacSHA512(
-        serverSeed,
-        `${clientSeed}:${nonce}:${cursor}`
-    );
-
-    const index = Math.floor(bytesToFloat(hash) * 52);
-    const rank = RANKS[index % 13];
-    const suit = SUITS[Math.floor(index / 13)];
-
-    return {
-        rank,
-        suit,
-        symbol: rank + SYMBOLS[suit]
-    };
-}
-
-async function getSequence(serverSeed, clientSeed, nonce) {
-    const cards = [];
-
-    for (let cursor = 0; cursor < 52; cursor++) {
-        cards.push(await dealCard(serverSeed, clientSeed, nonce, cursor));
-    }
-
-    return cards;
-}
-
-function bjValue(cards) {
-    let total = 0;
-    let aces = 0;
-
-    for (const card of cards) {
-        if (card.rank === 'A') {
-            total += 11;
-            aces++;
-        } else if (['10', 'J', 'Q', 'K'].includes(card.rank)) {
-            total += 10;
-        } else {
-            total += Number(card.rank);
-        }
-    }
-
-    while (total > 21 && aces > 0) {
-        total -= 10;
-        aces--;
-    }
-
-    return total;
-}
-
-function seeds() {
-    const serverInput = document.getElementById('server-seed');
-
-    if (!serverInput.value) {
-        const seed = new Uint8Array(24);
-        crypto.getRandomValues(seed);
-        serverInput.value = bytesToHex(seed);
-    }
-
-    return {
-        server: serverInput.value,
-        client: document.getElementById('client-seed').value || 'xx-player',
-        nonce: Number(document.getElementById('nonce').value) || 0
-    };
-}
-
-async function nextCard() {
-    const seed = GAME.roundSeed || seeds();
-
-    return dealCard(
-        seed.server,
-        seed.client,
-        seed.nonce,
-        GAME.cursor++
-    );
-}
-
-function paintCard(element, card, hidden) {
-    const red = card.suit === 'Hearts' || card.suit === 'Diamonds';
-    element.classList.toggle('red-card', red && !hidden);
-    element.classList.toggle('card-back', hidden);
-
-    if (hidden) {
-        element.innerHTML = '<span class="card-back-mark">RC</span>';
-        element.setAttribute('aria-label', 'Hidden dealer card');
-    } else {
-        element.innerHTML =
-            `<span class="card-corner">${card.rank}<br>${SYMBOLS[card.suit]}</span>` +
-            `<span class="card-center">${SYMBOLS[card.suit]}</span>`;
-        element.setAttribute('aria-label', `${card.rank} of ${card.suit}`);
-    }
-}
-
-function renderCards(containerId, cards, hideHole = false) {
-    const container = document.getElementById(containerId);
-    while (container.children.length > cards.length) {
-        container.lastElementChild.remove();
-    }
-
-    cards.forEach((card, index) => {
-        const hidden = hideHole && index === 1;
-        let element = container.children[index];
-
-        if (!element) {
-            element = document.createElement('div');
-            element.className = 'playing-card';
-            paintCard(element, card, hidden);
-            element.style.visibility = 'hidden';
-            const shoe = document.getElementById('card-shoe');
-            const shoeRect = shoe.getBoundingClientRect();
-            container.append(element);
-
-            const cardRect = element.getBoundingClientRect();
-            element.style.setProperty('--deal-x', `${shoeRect.left + shoeRect.width / 2 - cardRect.left - cardRect.width / 2}px`);
-            element.style.setProperty('--deal-y', `${shoeRect.top + shoeRect.height / 2 - cardRect.top - cardRect.height / 2}px`);
-            element.style.setProperty('--deal-rotation', `${index % 2 ? -7 : 7}deg`);
-            element.style.visibility = '';
-            element.classList.add('card-dealing');
-            window.setTimeout(() => element.classList.remove('card-dealing'), 560);
-
-            shoe.classList.remove('is-dealing');
-            void shoe.offsetWidth;
-            shoe.classList.add('is-dealing');
-            window.setTimeout(() => shoe.classList.remove('is-dealing'), 460);
-            return;
-        }
-
-        const wasHidden = element.classList.contains('card-back');
-        paintCard(element, card, hidden);
-        if (wasHidden && !hidden) {
-            element.classList.add('card-reveal');
-            window.setTimeout(() => element.classList.remove('card-reveal'), 360);
-        }
-    });
-}
-
-function updateTable(revealDealer = false) {
-    renderCards('player-cards', GAME.player);
-    renderCards(
-        'dealer-cards',
-        GAME.dealer,
-        !revealDealer && GAME.active
-    );
-
-    document.getElementById('player-total').textContent =
-        GAME.player.length ? bjValue(GAME.player) : '—';
-
-    document.getElementById('dealer-total').textContent =
-        GAME.dealer.length
-            ? (!revealDealer && GAME.active
-                ? bjValue([GAME.dealer[0]]) + ' + ?'
-                : bjValue(GAME.dealer))
-            : '—';
-
-    document.getElementById('bj-balance').textContent =
-        `${GAME.balance.toLocaleString()} PTS`;
-}
-
-function animateResult(result) {
-    const tone =
-        result === 'win' ? 'score-win' :
-        result === 'loss' ? 'score-loss' :
-        'score-push';
-
-    ['player-total', 'dealer-total', 'bj-balance'].forEach(id => {
-        const element = document.getElementById(id);
-
-        element.classList.remove('score-win', 'score-loss', 'score-push');
-        void element.offsetWidth;
-        element.classList.add(tone);
-    });
-
-    const table = document.querySelector('.table-felt');
-
-    table.classList.remove('table-win', 'table-loss', 'table-push');
-    void table.offsetWidth;
-
-    const tableResult =
-        result === 'win' ? 'win' :
-        result === 'loss' ? 'loss' :
-        'push';
-
-    table.classList.add(`table-${tableResult}`);
-}
-
-function setMessage(message, result = '') {
-    const element = document.getElementById('game-message');
-
-    element.textContent = message;
-    element.className =
-        `table-message${result ? ` ${result}` : ''}`;
-}
-
-function setActions(active) {
-    document.getElementById('hit-button').disabled = !active;
-    document.getElementById('stand-button').disabled = !active;
-    document.getElementById('deal-button').disabled = active;
-    document.getElementById('bet-amount').disabled = active;
-    document.querySelectorAll('.bet-chip').forEach(chip => { chip.disabled = active; });
-}
-
-async function startRound() {
-    if (GAME.active) return;
-
-    closeResult();
-
-    const betInput = document.getElementById('bet-amount');
-    const bet = Math.floor(Number(betInput.value));
-
-    if (!Number.isFinite(bet) || bet < 1 || bet > GAME.balance) {
-        setMessage(
-            `Enter a bet from 1 to ${GAME.balance} points.`,
-            'notice-result'
-        );
+function startRound() {
+    if (blackjack.active) return;
+    const bet = Number(document.querySelector("#bet-amount").value);
+    if (!Number.isInteger(bet) || bet < 1 || bet > blackjack.balance) {
+        document.querySelector("#bj-status").textContent = `Enter a bet from 1 to ${blackjack.balance}.`;
         return;
     }
-
-    try {
-        GAME.roundSeed = seeds();
-        GAME.bet = bet;
-        GAME.balance -= bet;
-        GAME.player = [];
-        GAME.dealer = [];
-        document.getElementById('player-cards').replaceChildren();
-        document.getElementById('dealer-cards').replaceChildren();
-        GAME.cursor = 0;
-        GAME.active = true;
-
-        document.getElementById('sequence-output').textContent =
-            'Round in progress. Verify after the hand is complete to reveal the full cursor sequence.';
-
-        setActions(true);
-        document.getElementById('hit-button').disabled = true;
-        document.getElementById('stand-button').disabled = true;
-        setMessage('Cards are being dealt.');
-
-        GAME.player.push(await nextCard());
-        updateTable();
-        playSound('deal');
-        await new Promise(resolve => setTimeout(resolve, 175));
-
-        GAME.dealer.push(await nextCard());
-        updateTable();
-        playSound('deal');
-        await new Promise(resolve => setTimeout(resolve, 175));
-
-        GAME.player.push(await nextCard());
-        updateTable();
-        playSound('deal');
-        await new Promise(resolve => setTimeout(resolve, 175));
-
-        GAME.dealer.push(await nextCard());
-        updateTable();
-        playSound('deal');
-        await new Promise(resolve => setTimeout(resolve, 320));
-
-        if (bjValue(GAME.player) === 21) {
-            await finishRound('blackjack');
-        } else {
-            document.getElementById('hit-button').disabled = false;
-            document.getElementById('stand-button').disabled = false;
-            setMessage('Your move. Hit or stand.');
-        }
-    } catch (error) {
-        GAME.active = false;
-        GAME.balance += GAME.bet;
-        updateTable();
-        setActions(false);
-        setMessage(error.message, 'notice-result');
-    }
+    blackjack.bet = bet;
+    blackjack.balance -= bet;
+    blackjack.player = [];
+    blackjack.dealer = [];
+    document.querySelector("#player-cards").replaceChildren();
+    document.querySelector("#dealer-cards").replaceChildren();
+    blackjack.deck = shuffleDeck();
+    blackjack.active = true;
+    blackjack.player.push(blackjack.deck.pop(), blackjack.deck.pop());
+    blackjack.dealer.push(blackjack.deck.pop(), blackjack.deck.pop());
+    setBlackjackButtons();
+    renderBlackjack();
+    if (handValue(blackjack.player) === 21) finishRound("blackjack");
+    else document.querySelector("#bj-status").textContent = "Hit or stand.";
 }
 
-async function hit() {
-    if (!GAME.active) return;
-
-    try {
-        GAME.player.push(await nextCard());
-        updateTable();
-        playSound('deal');
-
-        const total = bjValue(GAME.player);
-
-        if (total >= 21) {
-            await finishRound(total > 21 ? 'bust' : 'stand');
-        }
-    } catch (error) {
-        setMessage(error.message, 'notice-result');
-    }
+function hit() {
+    if (!blackjack.active) return;
+    blackjack.player.push(blackjack.deck.pop());
+    renderBlackjack();
+    const value = handValue(blackjack.player);
+    if (value >= 21) finishRound(value > 21 ? "bust" : "stand");
 }
 
-async function stand() {
-    if (!GAME.active) return;
-
-    try {
-        while (bjValue(GAME.dealer) < 17) {
-            GAME.dealer.push(await nextCard());
-            updateTable();
-            playSound('deal');
-
-            await new Promise(resolve => setTimeout(resolve, 260));
-        }
-
-        await finishRound('stand');
-    } catch (error) {
-        setMessage(error.message, 'notice-result');
-    }
+function stand() {
+    if (!blackjack.active) return;
+    while (handValue(blackjack.dealer) < 17) blackjack.dealer.push(blackjack.deck.pop());
+    finishRound("stand");
 }
 
-async function finishRound(reason) {
-    GAME.active = false;
-
-    const playerTotal = bjValue(GAME.player);
-    const dealerTotal = bjValue(GAME.dealer);
-    const natural =
-        reason === 'blackjack' && GAME.player.length === 2;
-
-    let result;
+function finishRound(reason) {
+    blackjack.active = false;
+    const player = handValue(blackjack.player);
+    const dealer = handValue(blackjack.dealer);
     let message;
 
-    if (reason === 'bust' || playerTotal > 21) {
-        result = 'loss';
-        message = `BUST — ${playerTotal}. You lose ${GAME.bet} points.`;
-    } else if (natural && dealerTotal !== 21) {
-        GAME.balance += Math.floor(GAME.bet * 2.5);
-        result = 'win';
-        message =
-            `BLACKJACK! You win ${Math.floor(GAME.bet * 1.5)} points.`;
-    } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
-        GAME.balance += GAME.bet * 2;
-        result = 'win';
-        message = `YOU WIN ${GAME.bet} POINTS.`;
-    } else if (playerTotal === dealerTotal) {
-        GAME.balance += GAME.bet;
-        result = 'push';
-        message = 'PUSH — your bet is returned.';
-    } else {
-        result = 'loss';
-        message =
-            `DEALER WINS — ${dealerTotal}. You lose ${GAME.bet} points.`;
-    }
+    if (reason === "bust" || player > 21) message = `Bust — you lose ${blackjack.bet} points.`;
+    else if (reason === "blackjack" && blackjack.player.length === 2 && dealer !== 21) {
+        blackjack.balance += Math.floor(blackjack.bet * 2.5);
+        message = `Blackjack — you win ${Math.floor(blackjack.bet * 1.5)} points.`;
+    } else if (dealer > 21 || player > dealer) {
+        blackjack.balance += blackjack.bet * 2;
+        message = `You win ${blackjack.bet} points.`;
+    } else if (player === dealer) {
+        blackjack.balance += blackjack.bet;
+        message = "Push — your bet is returned.";
+    } else message = `Dealer wins — you lose ${blackjack.bet} points.`;
 
-    updateTable(true);
-    animateResult(result);
-    setActions(false);
-    setMessage(message, `${result}-result`);
-    if (result === 'loss') showLostPopup();
-
-    playSound(
-        result === 'win' ? 'win' :
-        result === 'loss' ? 'lose' :
-        'deal'
-    );
-
-    GAME.lastSeed = { ...GAME.roundSeed };
-    GAME.lastCursor = GAME.cursor;
-
-    document.getElementById('nonce').value =
-        GAME.lastSeed.nonce + 1;
+    document.querySelector("#bj-status").textContent = message;
+    setBlackjackButtons();
+    renderBlackjack(true);
 }
 
-async function verifyCurrentRound() {
-    const output = document.getElementById('sequence-output');
-
-    try {
-        const seed = GAME.lastSeed || seeds();
-
-        output.textContent = 'Calculating the 52-card sequence…';
-
-        const sequence = await getSequence(
-            seed.server,
-            seed.client,
-            seed.nonce
-        );
-
-        const used = GAME.lastSeed ? GAME.lastCursor : 4;
-
-        output.textContent =
-            `Round nonce ${seed.nonce}; used cursors 0–${Math.max(0, used - 1)}. ` +
-            `Full 52-card sequence: ${sequence.map(card => card.symbol).join(', ')}`;
-    } catch (error) {
-        output.textContent = error.message;
+document.querySelectorAll("[data-view-target]").forEach(button =>
+    button.addEventListener("click", () => showView(button.dataset.viewTarget))
+);
+document.querySelector("#add-game-button").addEventListener("click", () => openEditor());
+gameForm.addEventListener("submit", saveGame);
+document.querySelector("#confirm-delete-button").addEventListener("click", deleteGame);
+document.querySelectorAll("[data-close-dialog]").forEach(button =>
+    button.addEventListener("click", () => document.querySelector(`#${button.dataset.closeDialog}`).close())
+);
+gameList.addEventListener("click", event => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const card = button.closest(".game-card");
+    const game = games.find(item => String(item.id) === String(card.dataset.id));
+    if (!game) return;
+    if (button.dataset.action === "play") {
+        if (game.name.toLowerCase() === "blackjack" && game.status === "playable") openBlackjack();
+        else showToast(`${game.name} is not playable yet.`);
     }
-}
-
-const betAmountInput = document.getElementById('bet-amount');
-
-function syncBetChips() {
-    document.querySelectorAll('.bet-chip').forEach(chip => {
-        chip.setAttribute('aria-pressed', String(Number(chip.dataset.bet) === Number(betAmountInput.value)));
-    });
-}
-
-document.querySelectorAll('.bet-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        betAmountInput.value = chip.dataset.bet;
-        syncBetChips();
-    });
-});
-betAmountInput.addEventListener('input', syncBetChips);
-
-document.addEventListener('keydown', event => {
-    const game = document.getElementById('blackjack');
-    if (!game || !game.classList.contains('is-open')) return;
-
-    if (event.key === 'Escape') {
-        closeBlackjack();
-        return;
-    }
-
-    if (event.key === 'Tab') {
-        const items = [...game.querySelectorAll('button:not(:disabled), input, summary')]
-            .filter(item => item.getClientRects().length > 0);
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first || !last) return;
-        if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault();
-            last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault();
-            first.focus();
-        }
+    if (button.dataset.action === "edit") openEditor(game);
+    if (button.dataset.action === "delete") {
+        deletingId = game.id;
+        document.querySelector("#delete-game-name").textContent = `"${game.name}" will be removed.`;
+        deleteDialog.showModal();
     }
 });
+document.querySelector("#close-blackjack").addEventListener("click", closeBlackjack);
+document.querySelector("#deal-button").addEventListener("click", startRound);
+document.querySelector("#hit-button").addEventListener("click", hit);
+document.querySelector("#stand-button").addEventListener("click", stand);
+
+const initialView = location.hash.slice(1);
+showView(document.querySelector(`#${initialView}`)?.classList.contains("app-view") ? initialView : "home-view");
+loadGames();
